@@ -11,9 +11,28 @@ TaskVerse aims to provide an organized environment where teams can collaborate, 
 
 The project focuses on building a secure, maintainable, and well-structured backend application using modern Java and Spring technologies.
 
-## Features
+## Implemented Features
 
-- User registration and profile management.
+### Sprint 0 – Project Setup & Foundation
+- Spring Boot project initialization.
+- PostgreSQL database configuration.
+- Maven project setup.
+- Swagger / OpenAPI integration.
+- Basic health check endpoint.
+
+### Sprint 1 – User Management
+- User entity and database design.
+- User registration.
+- Email uniqueness validation.
+- Password encryption using BCrypt.
+- Request validation.
+- Standard API response structure.
+- Global exception handling.
+- Custom exceptions.
+
+## Planned Features
+
+- User profile management.
 - Authentication and authorization using JWT.
 - Role-based access control.
 - Team creation and member management.
@@ -29,12 +48,18 @@ The project focuses on building a secure, maintainable, and well-structured back
 
 - Java 21
 - Spring Boot
-- Spring Security & JWT
+- Spring Web MVC
 - Spring Data JPA & Hibernate
+- Spring Security Crypto (BCrypt)
 - PostgreSQL
 - Swagger / OpenAPI
 - Maven
 - Lombok
+
+**Planned Technologies:**
+- Spring Security
+- JWT Authentication
+- Spring AOP
 
 ## Database
 
@@ -51,6 +76,13 @@ API documentation and testing are provided through Swagger UI.
 Once the application is running, access:
 
 [Swagger UI](http://localhost:8080/swagger-ui/index.html)
+
+## Available Endpoints
+
+| Method | Endpoint | Description | Status |
+|---|---|---|---|
+| GET | `/api/v1/health` | Check application health | Implemented |
+| POST | `/api/v1/auth/register` | Register a new user | Implemented |
 
 ## Getting Started
 
@@ -85,12 +117,19 @@ CREATE DATABASE taskverse_db;
 
 **4. Configure database connection**
 
-Update `src/main/resources/application.properties` with your local database credentials:
+Set the following environment variables on your machine:
+
+```properties
+DB_USERNAME=postgres
+DB_PASSWORD=YOUR_PASSWORD
+```
+
+Make sure your `application.properties` references these variables:
 
 ```properties
 spring.datasource.url=jdbc:postgresql://localhost:5432/taskverse_db
-spring.datasource.username=postgres
-spring.datasource.password=YOUR_PASSWORD
+spring.datasource.username=${DB_USERNAME}
+spring.datasource.password=${DB_PASSWORD}
 ```
 
 **5. Run the application**
@@ -109,20 +148,20 @@ The application will be available at:
 
 ## Project Roadmap
 
-| Sprint | Module |
-|---|---|
-| Sprint 0 | Project Setup & Foundation |
-| Sprint 1 | User Management |
-| Sprint 2 | Authentication & JWT |
-| Sprint 3 | Roles & Authorization |
-| Sprint 4 | Team Management |
-| Sprint 5 | Task Management & Workflow |
-| Sprint 6 | Notifications |
-| Sprint 7 | Document Management |
-| Sprint 8 | Activity Logs & AOP |
-| Sprint 9 | Reminders & Scheduling |
-| Sprint 10 | Admin APIs & Statistics |
-| Sprint 11 | Testing & Final Delivery |
+| Sprint | Module | Status |
+|---|---|---|
+| Sprint 0 | Project Setup & Foundation | Completed |
+| Sprint 1 | User Management | Registration Completed |
+| Sprint 2 | Authentication & JWT | Planned |
+| Sprint 3 | Roles & Authorization | Planned |
+| Sprint 4 | Team Management | Planned |
+| Sprint 5 | Task Management & Workflow | Planned |
+| Sprint 6 | Notifications | Planned |
+| Sprint 7 | Document Management | Planned |
+| Sprint 8 | Activity Logs & AOP | Planned |
+| Sprint 9 | Reminders & Scheduling | Planned |
+| Sprint 10 | Admin APIs & Statistics | Planned |
+| Sprint 11 | Testing & Final Delivery | Planned |
 
 ## Author
 
