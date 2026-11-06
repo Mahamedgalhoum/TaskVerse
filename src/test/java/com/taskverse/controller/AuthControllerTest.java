@@ -1,8 +1,10 @@
+
 package com.taskverse.controller;
 
 import tools.jackson.databind.ObjectMapper;
 import com.taskverse.dto.request.UserRegisterRequest;
 import com.taskverse.dto.response.UserResponse;
+import com.taskverse.service.AuthService;
 import com.taskverse.service.UserService;
 
 import org.junit.jupiter.api.Test;
@@ -13,10 +15,10 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import static org.mockito.Mockito.never;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -25,21 +27,17 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @WebMvcTest(AuthController.class)
 class AuthControllerTest {
 
-    private final MockMvc mockMvc;
-    @MockitoBean
-    private final UserService userService;
-    private final ObjectMapper objectMapper;
+    @Autowired
+    private MockMvc mockMvc;
 
     @Autowired
-    AuthControllerTest(
-            MockMvc mockMvc,
-            UserService userService,
-            ObjectMapper objectMapper
-    ) {
-        this.mockMvc = mockMvc;
-        this.userService = userService;
-        this.objectMapper = objectMapper;
-    }
+    private ObjectMapper objectMapper;
+
+    @MockitoBean
+    private UserService userService;
+
+    @MockitoBean
+    private AuthService authService;
 
     @Test
     void shouldRegisterUserSuccessfully() throws Exception {
@@ -77,6 +75,7 @@ class AuthControllerTest {
         verify(userService, times(1))
                 .registerUser(any(UserRegisterRequest.class));
     }
+
     @Test
     void shouldReturnBadRequestWhenEmailIsInvalid() throws Exception {
 
@@ -97,6 +96,7 @@ class AuthControllerTest {
         verify(userService, never())
                 .registerUser(any(UserRegisterRequest.class));
     }
+
     @Test
     void shouldReturnBadRequestWhenFirstNameIsBlank() throws Exception {
 
@@ -138,6 +138,7 @@ class AuthControllerTest {
         verify(userService, never())
                 .registerUser(any(UserRegisterRequest.class));
     }
+
     @Test
     void shouldReturnBadRequestWhenPasswordIsTooShort() throws Exception {
 
@@ -158,6 +159,7 @@ class AuthControllerTest {
         verify(userService, never())
                 .registerUser(any(UserRegisterRequest.class));
     }
+
     @Test
     void shouldReturnBadRequestWhenPhoneNumberIsTooLong() throws Exception {
 
@@ -178,6 +180,7 @@ class AuthControllerTest {
         verify(userService, never())
                 .registerUser(any(UserRegisterRequest.class));
     }
+
     @Test
     void shouldReturnBadRequestWhenEmailIsBlank() throws Exception {
 
@@ -198,6 +201,7 @@ class AuthControllerTest {
         verify(userService, never())
                 .registerUser(any(UserRegisterRequest.class));
     }
+
     @Test
     void shouldReturnBadRequestWhenEmailIsTooLong() throws Exception {
 
@@ -239,6 +243,7 @@ class AuthControllerTest {
         verify(userService, never())
                 .registerUser(any(UserRegisterRequest.class));
     }
+
     @Test
     void shouldReturnBadRequestWhenLastNameIsTooLong() throws Exception {
 
@@ -280,6 +285,7 @@ class AuthControllerTest {
         verify(userService, never())
                 .registerUser(any(UserRegisterRequest.class));
     }
+
     @Test
     void shouldReturnBadRequestWhenPasswordIsTooLong() throws Exception {
 
@@ -300,6 +306,7 @@ class AuthControllerTest {
         verify(userService, never())
                 .registerUser(any(UserRegisterRequest.class));
     }
+
     @Test
     void shouldRegisterUserSuccessfullyWithoutPhone() throws Exception {
 
@@ -334,7 +341,8 @@ class AuthControllerTest {
     }
 
     @Test
-    void shouldReturnUnsupportedMediaTypeWhenContentTypeIsInvalid() throws Exception {
+    void shouldReturnUnsupportedMediaTypeWhenContentTypeIsInvalid()
+            throws Exception {
 
         mockMvc.perform(post("/api/v1/auth/register")
                         .contentType(MediaType.TEXT_PLAIN)

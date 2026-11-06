@@ -1,40 +1,42 @@
+
 package com.taskverse.service;
 
 import com.taskverse.dto.request.ChangePasswordRequest;
-import com.taskverse.dto.request.UserUpdateRequest;
-import com.taskverse.exception.InvalidPasswordException;
-import com.taskverse.exception.UserNotFoundException;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.junit.jupiter.MockitoExtension;
-import com.taskverse.repository.UserRepository;
-import org.mockito.Mock;
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.mockito.InjectMocks;
-
 import com.taskverse.dto.request.UserRegisterRequest;
+import com.taskverse.dto.request.UserUpdateRequest;
 import com.taskverse.dto.response.UserResponse;
 import com.taskverse.entity.User;
+import com.taskverse.exception.EmailAlreadyExistsException;
+import com.taskverse.exception.InvalidPasswordException;
+import com.taskverse.exception.UserNotFoundException;
+import com.taskverse.repository.UserRepository;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.crypto.password.PasswordEncoder;
+
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.*;
 
-import org.mockito.ArgumentCaptor;
-import java.util.Optional;
-import com.taskverse.exception.EmailAlreadyExistsException;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-
-import static org.mockito.Mockito.never;
-
-
 @ExtendWith(MockitoExtension.class)
-public class UserServiceTest {
+class UserServiceTest {
+
     @Mock
     private UserRepository userRepository;
+
     @Mock
     private PasswordEncoder passwordEncoder;
+
     @InjectMocks
     private UserService userService;
+
+    // ==================== Registration Tests ====================
 
     @Test
     void shouldRegisterUserSuccessfully() {
@@ -48,41 +50,37 @@ public class UserServiceTest {
         request.setPassword("TaskVerse@123");
         request.setPhone("01026368065");
 
-        // Mock Repository behavior
         when(userRepository.existsByEmail("mohamed@gmail.com"))
                 .thenReturn(false);
 
-        // Mock PasswordEncoder behavior
         when(passwordEncoder.encode("TaskVerse@123"))
                 .thenReturn("encodedPassword");
 
-        // Mock save behavior
         when(userRepository.save(any(User.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
+        // Act
         UserResponse response = userService.registerUser(request);
 
+        // Assert
         assertThat(response).isNotNull();
-
         assertThat(response.getFirstName()).isEqualTo("Mohamed");
         assertThat(response.getLastName()).isEqualTo("Galhoum");
         assertThat(response.getEmail()).isEqualTo("mohamed@gmail.com");
         assertThat(response.getPhone()).isEqualTo("01026368065");
 
+        ArgumentCaptor<User> userCaptor =
+                ArgumentCaptor.forClass(User.class);
+
         verify(userRepository).existsByEmail("mohamed@gmail.com");
-
         verify(passwordEncoder).encode("TaskVerse@123");
-
-        verify(userRepository).save(any(User.class));
-
-        ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
-
         verify(userRepository).save(userCaptor.capture());
 
         User savedUser = userCaptor.getValue();
 
         assertThat(savedUser.getPassword()).isEqualTo("encodedPassword");
     }
+
     @Test
     void shouldThrowExceptionWhenEmailAlreadyExists() {
 
@@ -97,6 +95,7 @@ public class UserServiceTest {
 
         when(userRepository.existsByEmail("mohamed@gmail.com"))
                 .thenReturn(true);
+
         // Act & Assert
         assertThatThrownBy(() -> userService.registerUser(request))
                 .isInstanceOf(EmailAlreadyExistsException.class);
@@ -104,47 +103,67 @@ public class UserServiceTest {
         verify(userRepository, never()).save(any(User.class));
         verify(passwordEncoder, never()).encode(anyString());
     }
+
+    // ==================== Get Current User Tests ====================
+
     @Test
-    void shouldGetUserByIdSuccessfully() {
+    void shouldGetCurrentUserSuccessfully() {
+
         // Arrange
+        String email = "mohamed@gmail.com";
+
         User user = new User(
                 "Mohamed",
                 "Galhoum",
-                "mohamed@gmail.com",
+                email,
                 "encodedPassword",
                 "01026368065"
         );
-        when(userRepository.findById(1L))
+
+        when(userRepository.findByEmail(email))
                 .thenReturn(Optional.of(user));
-        UserResponse response = userService.getUserById(1L);
+
+        // Act
+        UserResponse response = userService.getCurrentUser(email);
+
         // Assert
         assertThat(response).isNotNull();
         assertThat(response.getFirstName()).isEqualTo("Mohamed");
         assertThat(response.getLastName()).isEqualTo("Galhoum");
-        assertThat(response.getEmail()).isEqualTo("mohamed@gmail.com");
+        assertThat(response.getEmail()).isEqualTo(email);
         assertThat(response.getPhone()).isEqualTo("01026368065");
 
-        verify(userRepository).findById(1L);
+        verify(userRepository).findByEmail(email);
     }
+
     @Test
-    void shouldThrowExceptionWhenUserDoesNotExist() {
-        when(userRepository.findById(100L))
+    void shouldThrowExceptionWhenCurrentUserDoesNotExist() {
+
+        // Arrange
+        String email = "notfound@gmail.com";
+
+        when(userRepository.findByEmail(email))
                 .thenReturn(Optional.empty());
 
         // Act & Assert
-        assertThatThrownBy(() -> userService.getUserById(100L))
+        assertThatThrownBy(() -> userService.getCurrentUser(email))
                 .isInstanceOf(UserNotFoundException.class);
 
-        // Verify
-        verify(userRepository).findById(100L);
+        verify(userRepository).findByEmail(email);
     }
+
+    // ==================== Update Current User Tests ====================
+
     @Test
-    void shouldUpdateUserSuccessfully() {
-// Arrange
+    void shouldUpdateCurrentUserSuccessfully() {
+
+        // Arrange
+        String email = "mohamed@gmail.com";
+
         User user = new User(
                 "Mohamed",
                 "Galhoum",
-                "mohamed@gmail.com",
+                email,
                 "encodedPassword",
                 "01026368065"
         );
@@ -155,34 +174,41 @@ public class UserServiceTest {
         request.setLastName("Ali");
         request.setPhone("01111111111");
 
-        when(userRepository.findById(1L))
+        when(userRepository.findByEmail(email))
                 .thenReturn(Optional.of(user));
 
         when(userRepository.save(any(User.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
-        UserResponse response = userService.updateUser(1L, request);
+        // Act
+        UserResponse response =
+                userService.updateCurrentUser(email, request);
+
         // Assert
         assertThat(response).isNotNull();
-
         assertThat(response.getFirstName()).isEqualTo("Ahmed");
         assertThat(response.getLastName()).isEqualTo("Ali");
         assertThat(response.getPhone()).isEqualTo("01111111111");
 
-        // Properties that should remain unchanged
-        assertThat(response.getEmail()).isEqualTo("mohamed@gmail.com");
+        // Email should remain unchanged
+        assertThat(response.getEmail()).isEqualTo(email);
 
-        // Verify
-        verify(userRepository).findById(1L);
-        verify(userRepository).save(any(User.class));
+        verify(userRepository).findByEmail(email);
+        verify(userRepository).save(user);
     }
+
+    // ==================== Change Password Tests ====================
+
     @Test
-    void shouldChangePasswordSuccessfully() {
-// Arrange
+    void shouldChangeCurrentUserPasswordSuccessfully() {
+
+        // Arrange
+        String email = "mohamed@gmail.com";
+
         User user = new User(
                 "Mohamed",
                 "Galhoum",
-                "mohamed@gmail.com",
+                email,
                 "encodedOldPassword",
                 "01026368065"
         );
@@ -193,36 +219,55 @@ public class UserServiceTest {
         request.setNewPassword("NewPassword@123");
         request.setConfirmNewPassword("NewPassword@123");
 
-        when(userRepository.findById(1L))
+        when(userRepository.findByEmail(email))
                 .thenReturn(Optional.of(user));
 
-        when(passwordEncoder.matches("OldPassword@123", "encodedOldPassword"))
-                .thenReturn(true);
+        when(passwordEncoder.matches(
+                "OldPassword@123",
+                "encodedOldPassword"
+        )).thenReturn(true);
 
         when(passwordEncoder.encode("NewPassword@123"))
                 .thenReturn("encodedNewPassword");
 
         when(userRepository.save(any(User.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
-        // Act
-        userService.changePassword(1L, request);
 
-        ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
+        // Act
+        userService.changeCurrentUserPassword(email, request);
+
+        // Assert
+        ArgumentCaptor<User> userCaptor =
+                ArgumentCaptor.forClass(User.class);
 
         verify(userRepository).save(userCaptor.capture());
 
         User savedUser = userCaptor.getValue();
 
-        assertThat(savedUser.getPassword()).isEqualTo("encodedNewPassword");
+        assertThat(savedUser.getPassword())
+                .isEqualTo("encodedNewPassword");
+
+        assertThat(savedUser.getTokenVersion())
+                .isEqualTo(1);
+
+        verify(passwordEncoder).matches(
+                "OldPassword@123",
+                "encodedOldPassword"
+        );
+
+        verify(passwordEncoder).encode("NewPassword@123");
     }
 
     @Test
     void shouldThrowExceptionWhenCurrentPasswordIsIncorrect() {
+
         // Arrange
+        String email = "mohamed@gmail.com";
+
         User user = new User(
                 "Mohamed",
                 "Galhoum",
-                "mohamed@gmail.com",
+                email,
                 "encodedOldPassword",
                 "01026368065"
         );
@@ -233,26 +278,38 @@ public class UserServiceTest {
         request.setNewPassword("NewPassword@123");
         request.setConfirmNewPassword("NewPassword@123");
 
-        when(userRepository.findById(1L))
+        when(userRepository.findByEmail(email))
                 .thenReturn(Optional.of(user));
 
-        when(passwordEncoder.matches("WrongPassword@123", "encodedOldPassword"))
-                .thenReturn(false);
+        when(passwordEncoder.matches(
+                "WrongPassword@123",
+                "encodedOldPassword"
+        )).thenReturn(false);
 
-        assertThatThrownBy(() -> userService.changePassword(1L, request))
+        // Act & Assert
+        assertThatThrownBy(() ->
+                userService.changeCurrentUserPassword(email, request))
                 .isInstanceOf(InvalidPasswordException.class);
 
-        verify(userRepository).findById(1L);
+        verify(passwordEncoder).matches(
+                "WrongPassword@123",
+                "encodedOldPassword"
+        );
 
-        verify(passwordEncoder).matches("WrongPassword@123", "encodedOldPassword");
+        verify(userRepository, never()).save(any(User.class));
+        verify(passwordEncoder, never()).encode(anyString());
     }
+
     @Test
     void shouldThrowExceptionWhenNewPasswordIsSameAsCurrentPassword() {
+
         // Arrange
+        String email = "mohamed@gmail.com";
+
         User user = new User(
                 "Mohamed",
                 "Galhoum",
-                "mohamed@gmail.com",
+                email,
                 "encodedOldPassword",
                 "01026368065"
         );
@@ -263,26 +320,38 @@ public class UserServiceTest {
         request.setNewPassword("OldPassword@123");
         request.setConfirmNewPassword("OldPassword@123");
 
-        when(userRepository.findById(1L))
+        when(userRepository.findByEmail(email))
                 .thenReturn(Optional.of(user));
 
-        when(passwordEncoder.matches("OldPassword@123", "encodedOldPassword"))
-                .thenReturn(true);
+        when(passwordEncoder.matches(
+                "OldPassword@123",
+                "encodedOldPassword"
+        )).thenReturn(true);
 
-        assertThatThrownBy(() -> userService.changePassword(1L, request))
+        // Act & Assert
+        assertThatThrownBy(() ->
+                userService.changeCurrentUserPassword(email, request))
                 .isInstanceOf(InvalidPasswordException.class);
 
-        verify(userRepository).findById(1L);
+        verify(passwordEncoder).matches(
+                "OldPassword@123",
+                "encodedOldPassword"
+        );
 
-        verify(passwordEncoder).matches("OldPassword@123", "encodedOldPassword");
+        verify(userRepository, never()).save(any(User.class));
+        verify(passwordEncoder, never()).encode(anyString());
     }
+
     @Test
     void shouldThrowExceptionWhenPasswordConfirmationDoesNotMatch() {
+
         // Arrange
+        String email = "mohamed@gmail.com";
+
         User user = new User(
                 "Mohamed",
                 "Galhoum",
-                "mohamed@gmail.com",
+                email,
                 "encodedOldPassword",
                 "01026368065"
         );
@@ -293,51 +362,75 @@ public class UserServiceTest {
         request.setNewPassword("NewPassword@123");
         request.setConfirmNewPassword("DifferentPassword@123");
 
-        when(userRepository.findById(1L))
+        when(userRepository.findByEmail(email))
                 .thenReturn(Optional.of(user));
 
-        when(passwordEncoder.matches("OldPassword@123", "encodedOldPassword"))
-                .thenReturn(true);
+        when(passwordEncoder.matches(
+                "OldPassword@123",
+                "encodedOldPassword"
+        )).thenReturn(true);
 
-        assertThatThrownBy(() -> userService.changePassword(1L, request))
+        // Act & Assert
+        assertThatThrownBy(() ->
+                userService.changeCurrentUserPassword(email, request))
                 .isInstanceOf(InvalidPasswordException.class);
 
-        verify(userRepository).findById(1L);
+        verify(passwordEncoder).matches(
+                "OldPassword@123",
+                "encodedOldPassword"
+        );
 
-        verify(passwordEncoder).matches("OldPassword@123", "encodedOldPassword");
+        verify(userRepository, never()).save(any(User.class));
+        verify(passwordEncoder, never()).encode(anyString());
     }
+
+    // ==================== Disable Current User Tests ====================
+
     @Test
-    void shouldDeleteUserSuccessfully() {
+    void shouldDisableCurrentUserSuccessfully() {
+
         // Arrange
+        String email = "mohamed@gmail.com";
+
         User user = new User(
                 "Mohamed",
                 "Galhoum",
-                "mohamed@gmail.com",
+                email,
                 "encodedPassword",
                 "01026368065"
         );
 
-        when(userRepository.findById(1L))
+        when(userRepository.findByEmail(email))
                 .thenReturn(Optional.of(user));
 
-        // Act
-        userService.deleteUser(1L);
+        when(userRepository.save(any(User.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
 
-        // Verify
-        verify(userRepository).findById(1L);
-        verify(userRepository).delete(user);
+        // Act
+        userService.disableCurrentUser(email);
+
+        // Assert
+        assertThat(user.isEnabled()).isFalse();
+
+        verify(userRepository).findByEmail(email);
+        verify(userRepository).save(user);
     }
 
     @Test
-    void shouldThrowExceptionWhenDeletingNonExistingUser() {
+    void shouldThrowExceptionWhenDisablingNonExistingUser() {
+
         // Arrange
-        when(userRepository.findById(100L))
+        String email = "notfound@gmail.com";
+
+        when(userRepository.findByEmail(email))
                 .thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> userService.deleteUser(100L))
+        // Act & Assert
+        assertThatThrownBy(() ->
+                userService.disableCurrentUser(email))
                 .isInstanceOf(UserNotFoundException.class);
 
-        verify(userRepository).findById(100L);
-        verify(userRepository, never()).delete(any(User.class));
+        verify(userRepository).findByEmail(email);
+        verify(userRepository, never()).save(any(User.class));
     }
 }

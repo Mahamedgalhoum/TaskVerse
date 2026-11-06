@@ -42,19 +42,24 @@ public class UserService {
         return mapToUserResponse(savedUser);
     }
 
-    // Get User By ID
-    @Transactional(readOnly = true)
-    public UserResponse getUserById(Long userId) {
 
-        User user = findUserById(userId);
+    // Get Current User
+    @Transactional(readOnly = true)
+    public UserResponse getCurrentUser(String email) {
+
+        User user = findUserByEmail(email);
 
         return mapToUserResponse(user);
     }
 
-    // Update User Profile
-    public UserResponse updateUser(Long userId, UserUpdateRequest request) {
 
-        User user = findUserById(userId);
+
+    // Update Current User Profile
+    public UserResponse updateCurrentUser(
+            String email,
+            UserUpdateRequest request) {
+
+        User user = findUserByEmail(email);
 
         updateUserDetails(user, request);
 
@@ -63,10 +68,10 @@ public class UserService {
         return mapToUserResponse(updatedUser);
     }
 
-    // Change Password
-    public void changePassword(Long userId, ChangePasswordRequest request) {
 
-        User user = findUserById(userId);
+    public void changeCurrentUserPassword(String email, ChangePasswordRequest request) {
+
+        User user = findUserByEmail(email);
 
         validateCurrentPassword(user, request.getCurrentPassword());
 
@@ -74,24 +79,31 @@ public class UserService {
                 request.getCurrentPassword(),
                 request.getNewPassword()
         );
+
         validatePasswordConfirmation(
                 request.getNewPassword(),
                 request.getConfirmNewPassword()
         );
+
         String encodedPassword = encodePassword(request.getNewPassword());
 
         user.changePassword(encodedPassword);
 
+        user.incrementTokenVersion();
+
         saveUser(user);
     }
 
-    // Delete User
-    public void deleteUser(Long userId) {
+    // Soft Delete Current User
+    public void disableCurrentUser(String email) {
 
-        User user = findUserById(userId);
+        User user = findUserByEmail(email);
 
-        userRepository.delete(user);
+        user.disableAccount();
+
+        saveUser(user);
     }
+
 
 
     // ==================== Registration Methods ====================
@@ -173,15 +185,15 @@ public class UserService {
 
     // ==================== Common Methods ====================
 
-    private User findUserById(Long userId) {
-
-        return userRepository.findById(userId)
-                .orElseThrow(() ->
-                        new UserNotFoundException("User not found"));
-    }
-
     private User saveUser(User user) {
         return userRepository.save(user);
+    }
+
+    private User findUserByEmail(String email) {
+
+        return userRepository.findByEmail(email)
+                .orElseThrow(() ->
+                        new UserNotFoundException("User not found"));
     }
 
     private UserResponse mapToUserResponse(User user) {

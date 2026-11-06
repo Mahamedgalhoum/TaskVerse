@@ -42,6 +42,8 @@ public class User {
     @UpdateTimestamp
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
+    @Column(name = "token_version", nullable = false)
+    private long tokenVersion = 0;
 
 
     public User(String firstName, String lastName, String email, String password, String phone) {
@@ -65,5 +67,15 @@ public class User {
 
     public void changePassword(String encodedPassword) {
         this.password = encodedPassword;
+    }
+    public void disableAccount() {
+        this.enabled = false;
+    }
+    public void enableAccount() {
+        this.enabled = true;
+    }
+
+    public void incrementTokenVersion() {
+        this.tokenVersion++;
     }
 }
