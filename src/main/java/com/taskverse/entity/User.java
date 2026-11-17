@@ -1,5 +1,6 @@
 package com.taskverse.entity;
 
+import com.taskverse.enums.Role;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -44,6 +45,11 @@ public class User {
     private LocalDateTime updatedAt;
     @Column(name = "token_version", nullable = false)
     private long tokenVersion = 0;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "role", nullable = false, length = 30)
+    private Role role = Role.USER;
+    @Column(name = "deletion_scheduled_at")
+    private LocalDateTime deletionScheduledAt;
 
 
     public User(String firstName, String lastName, String email, String password, String phone) {
@@ -53,6 +59,7 @@ public class User {
         this.password = password;
         this.phone = phone;
         this.enabled = true;
+        this.role = Role.USER;
     }
 
     public void updateProfile(
@@ -67,12 +74,28 @@ public class User {
 
     public void changePassword(String encodedPassword) {
         this.password = encodedPassword;
+        incrementTokenVersion();
+
     }
+    public void changeRole(Role role) {
+        this.role = role;
+    }
+
+
     public void disableAccount() {
         this.enabled = false;
     }
     public void enableAccount() {
         this.enabled = true;
+    }
+    public void scheduleDeletion(LocalDateTime deletionDate) {
+        this.enabled = false;
+        this.deletionScheduledAt = deletionDate;
+    }
+
+    public void reactivateAccount() {
+        this.enabled = true;
+        this.deletionScheduledAt = null;
     }
 
     public void incrementTokenVersion() {

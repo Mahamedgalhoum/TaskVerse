@@ -13,7 +13,7 @@ The project focuses on building a secure, maintainable, and scalable backend usi
 
 TaskVerse aims to provide an organized environment where teams can collaborate, assign responsibilities, manage tasks, and track progress efficiently.
 
-The platform is being developed incrementally through independent development sprints, with a focus on clean architecture, secure authentication, API design, and maintainable code.
+The platform is being developed incrementally through independent development sprints, with a focus on clean architecture, secure authentication, role-based authorization, API design, and maintainable code.
 
 ## Implemented Features
 
@@ -55,31 +55,54 @@ The platform is being developed incrementally through independent development sp
 - Account deactivation (soft delete).
 - Protected user endpoints.
 
+### Sprint 3 – Roles & Authorization
+
+- Role-based access control.
+- User roles: ADMIN, TEAM_LEADER, and USER.
+- Default USER role assignment during registration.
+- Spring Security authorities integration.
+- JWT role claim integration.
+- Method-level security using `@PreAuthorize`.
+- Admin-only user management endpoints.
+- Retrieve all users with pagination.
+- Retrieve user details by ID.
+- Change user roles.
+- Enable and disable user accounts.
+- Token invalidation after role and account status changes.
+- Protection against disabling or demoting the last active administrator.
+- Account reactivation during the configured grace period.
+- Configurable account deletion grace period.
+- Admin account deletion settings endpoints.
+
+**Note:** Resource-level authorization for teams and tasks is deferred until the Team Management and Task Management modules are implemented.
+
 ## Technology Stack
 
 | Technology | Purpose |
 |---|---|
 | Java 21 | Programming Language |
-| Spring Boot 4 | Backend Framework |
+| Spring Boot 4.1.2 | Backend Framework |
 | Spring Web MVC | REST API Development |
 | Spring Data JPA | Data Access |
 | Hibernate | ORM |
-| Spring Security | Authentication & Security |
+| Spring Security | Authentication & Authorization |
 | Spring Security OAuth2 Resource Server | JWT Validation |
 | Spring Security JOSE | JWT Encoding and Decoding |
-| BCrypt | Password Encryption |
+| BCrypt | Password Hashing |
 | PostgreSQL | Relational Database |
 | Swagger / OpenAPI | API Documentation |
 | Maven | Dependency Management |
 | Lombok | Boilerplate Reduction |
-| JUnit 5 | Unit and Integration Testing |
+| JUnit 5 | Testing |
 | Mockito | Mocking and Testing |
 
 ## Security
 
 TaskVerse uses Spring Security to protect its REST APIs.
 
-Authentication is based on JWT (JSON Web Tokens), with the following security mechanisms:
+Authentication and authorization are based on JWT and role-based access control.
+
+Security mechanisms include:
 
 - Passwords are stored using BCrypt hashing.
 - Users authenticate using their email and password.
@@ -89,26 +112,51 @@ Authentication is based on JWT (JSON Web Tokens), with the following security me
 - Token versioning allows previously issued tokens to be invalidated.
 - Password changes invalidate existing tokens.
 - Disabled accounts cannot use previously issued tokens.
+- Role-based authorities control access to protected endpoints.
+- Administrative operations are restricted to users with the ADMIN role.
+- Role and account status changes invalidate existing tokens.
+
+### User Roles
+
+| Role | Description |
+|---|---|
+| ADMIN | Manages system-wide user administration and settings. |
+| TEAM_LEADER | Intended to manage team-related operations. |
+| USER | Standard registered user. |
+
+New registrations are assigned the USER role by default. Users cannot choose their own role during registration.
 
 ## API Endpoints
 
 ### Authentication
 
-| Method | Endpoint | Description |
-|---|---|---|
-| POST | `/api/v1/auth/register` | Register a new user |
-| POST | `/api/v1/auth/login` | Authenticate and receive a JWT |
+| Method | Endpoint | Description | Access |
+|---|---|---|---|
+| POST | `/api/v1/auth/register` | Register a new user | Public |
+| POST | `/api/v1/auth/login` | Authenticate and receive a JWT | Public |
+| POST | `/api/v1/auth/reactivate` | Reactivate an eligible account | Public |
 
 ### User Management
 
-All user endpoints below require authentication.
+| Method | Endpoint | Description | Access |
+|---|---|---|---|
+| GET | `/api/v1/users/me` | Get current user profile | Authenticated |
+| PUT | `/api/v1/users/me` | Update current user profile | Authenticated |
+| PATCH | `/api/v1/users/me/password` | Change current user password | Authenticated |
+| DELETE | `/api/v1/users/me` | Deactivate current user account | Authenticated |
+| GET | `/api/v1/users` | Retrieve all users with pagination | ADMIN |
+| GET | `/api/v1/users/{id}` | Retrieve user details | ADMIN |
+| PATCH | `/api/v1/users/{id}/role` | Change a user's role | ADMIN |
+| PATCH | `/api/v1/users/{id}/status` | Enable or disable a user account | ADMIN |
 
-| Method | Endpoint | Description |
-|---|---|---|
-| GET | `/api/v1/users/me` | Get current user profile |
-| PUT | `/api/v1/users/me` | Update current user profile |
-| PATCH | `/api/v1/users/me/password` | Change current user password |
-| DELETE | `/api/v1/users/me` | Deactivate current user account |
+### Admin Settings
+
+| Method | Endpoint | Description | Access |
+|---|---|---|---|
+| GET | `/api/v1/admin/settings/account-deletion` | Retrieve account deletion settings | ADMIN |
+| PATCH | `/api/v1/admin/settings/account-deletion` | Update account deletion grace period | ADMIN |
+
+All protected endpoints require a valid Bearer JWT token and the appropriate authorization.
 
 ## API Documentation
 
@@ -130,7 +178,7 @@ The development database name is:
 
 `taskverse_db`
 
-Database connection settings are configured through environment variables.
+Database connection settings are configured through environment variables where applicable.
 
 ## Getting Started
 
@@ -163,27 +211,25 @@ cd TaskVerse
 CREATE DATABASE taskverse_db;
 ```
 
-**4. Configure database connection**
+**4. Configure environment variables**
 
-Set the following environment variables:
+Set the required environment variables:
 
 ```properties
-DB_USERNAME=postgres
 DB_PASSWORD=YOUR_PASSWORD
+JWT_SECRET=YOUR_BASE64_ENCODED_SECRET
 ```
 
-Make sure your `application.properties` references these variables:
+Configure the application properties:
 
 ```properties
 spring.datasource.url=jdbc:postgresql://localhost:5432/taskverse_db
-spring.datasource.username=${DB_USERNAME}
+spring.datasource.username=postgres
 spring.datasource.password=${DB_PASSWORD}
+
+jwt.secret=${JWT_SECRET}
+jwt.expiration=600000
 ```
-
-Also configure the JWT properties required by the application:
-
-- `jwt.secret`: A Base64-encoded secret key suitable for HS256.
-- `jwt.expiration`: Token expiration duration in milliseconds.
 
 Keep database credentials and JWT secrets outside source control.
 
@@ -203,14 +249,19 @@ The application will be available at:
 
 ## Testing
 
-The project includes automated tests using JUnit 5, Mockito, and Spring Boot testing support.
+Automated testing is part of the project development process.
 
-Current test results:
+Testing for Sprint 2 (Authentication & JWT) and Sprint 3 (Roles & Authorization) is pending.
 
-- Total tests: 46
-- Failures: 0
-- Errors: 0
-- Skipped: 0
+The planned testing scope includes:
+
+- Unit testing using JUnit 5 and Mockito.
+- Repository testing.
+- Controller testing.
+- Authentication and JWT validation testing.
+- Role-based authorization testing.
+- Account management testing.
+- Integration testing.
 
 Run the test suite using:
 
@@ -224,8 +275,8 @@ mvn test
 |---|---|---|
 | Sprint 0 | Project Setup & Foundation | Completed |
 | Sprint 1 | User Management | Completed |
-| Sprint 2 | Authentication & JWT | Completed |
-| Sprint 3 | Roles & Authorization | Planned |
+| Sprint 2 | Authentication & JWT | Implementation Completed |
+| Sprint 3 | Roles & Authorization | Implementation In Progress |
 | Sprint 4 | Team Management | Planned |
 | Sprint 5 | Task Management & Workflow | Planned |
 | Sprint 6 | Notifications | Planned |

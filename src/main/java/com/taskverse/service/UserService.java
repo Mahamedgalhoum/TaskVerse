@@ -1,19 +1,22 @@
 package com.taskverse.service;
 
-import com.taskverse.dto.request.ChangePasswordRequest;
-import com.taskverse.dto.request.UserRegisterRequest;
-import com.taskverse.dto.request.UserUpdateRequest;
+import com.taskverse.dto.request.*;
+import com.taskverse.dto.response.AdminUserResponse;
 import com.taskverse.dto.response.UserResponse;
 import com.taskverse.entity.User;
+import com.taskverse.enums.Role;
 import com.taskverse.exception.EmailAlreadyExistsException;
 import com.taskverse.exception.InvalidPasswordException;
 import com.taskverse.exception.UserNotFoundException;
 import com.taskverse.repository.UserRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.Locale;
 
 @Service
@@ -23,6 +26,7 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final AccountDeletionSettingService accountDeletionSettingService;
 
     // ==================== Public Methods ====================
 
@@ -50,6 +54,23 @@ public class UserService {
         User user = findUserByEmail(email);
 
         return mapToUserResponse(user);
+    }
+
+    @Transactional(readOnly = true)
+    public AdminUserResponse getUserById(Long id) {
+
+        User user = userRepository.findById(id)
+                .orElseThrow(() ->
+                        new UserNotFoundException("User not found"));
+
+        return mapToAdminUserResponse(user);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<AdminUserResponse> getAllUsers(Pageable pageable) {
+
+        return userRepository.findAll(pageable)
+                .map(this::mapToAdminUserResponse);
     }
 
 
@@ -94,16 +115,94 @@ public class UserService {
         saveUser(user);
     }
 
+    public AdminUserResponse changeUserRole(
+            Long id,
+            ChangeUserRoleRequest request,
+            String currentUserEmail) {
+
+        User user = userRepository.findById(id)
+                .orElseThrow(() ->
+                        new UserNotFoundException("User not found"));
+
+        // Prevent changing your own role
+        if (user.getEmail().equalsIgnoreCase(currentUserEmail)) {
+            throw new IllegalArgumentException(
+                    "You cannot change your own role");
+        }
+
+        Role newRole = request.getRole();
+
+        // Check if the role is actually changing
+        if (user.getRole() == newRole) {
+            return mapToAdminUserResponse(user);
+        }
+
+        validateLastAdminRoleChange(user, newRole);
+
+        user.changeRole(newRole);
+        user.incrementTokenVersion();
+
+        saveUser(user);
+
+        return mapToAdminUserResponse(user);
+    }
+
+    public AdminUserResponse changeUserStatus(
+            Long id,
+            ChangeUserStatusRequest request,
+            String currentUserEmail) {
+
+        User user = userRepository.findById(id)
+                .orElseThrow(() ->
+                        new UserNotFoundException("User not found"));
+
+        validateNotCurrentUser(user, currentUserEmail);
+
+        boolean newStatus = request.getEnabled();
+
+        if (user.isEnabled() == newStatus) {
+            return mapToAdminUserResponse(user);
+        }
+
+        validateLastAdmin(user, newStatus);
+
+        updateAccountStatus(user, newStatus);
+
+        user.incrementTokenVersion();
+
+        saveUser(user);
+
+        return mapToAdminUserResponse(user);
+    }
+
     // Soft Delete Current User
     public void disableCurrentUser(String email) {
 
         User user = findUserByEmail(email);
+        validateLastAdmin(user, false);
+        LocalDateTime deletionDate = LocalDateTime.now()
+                .plusDays(accountDeletionSettingService.getGracePeriodDays());
 
-        user.disableAccount();
+        user.scheduleDeletion(deletionDate);
+        user.incrementTokenVersion();
 
         saveUser(user);
     }
+    public void reactivateAccount(AccountReactivationRequest request) {
 
+        String email = normalizeEmail(request.getEmail());
+
+        User user = findUserByEmail(email);
+
+        validateReactivationCredentials(user, request.getPassword());
+
+        validateAccountEligibleForReactivation(user);
+
+        user.reactivateAccount();
+        user.incrementTokenVersion();
+
+        saveUser(user);
+    }
 
 
     // ==================== Registration Methods ====================
@@ -182,6 +281,67 @@ public class UserService {
         }
     }
 
+    // ==================== Account Status Methods ====================
+    private void validateNotCurrentUser(User user, String currentUserEmail) {
+
+        if (user.getEmail().equalsIgnoreCase(currentUserEmail)) {
+            throw new IllegalArgumentException(
+                    "You cannot change your own account status");
+        }
+    }
+    private void validateLastAdmin(User user, boolean newStatus) {
+
+        if (user.getRole() == Role.ADMIN
+                && user.isEnabled()
+                && !newStatus
+                && userRepository.countByRoleAndEnabledTrue(Role.ADMIN) <= 1) {
+
+            throw new IllegalStateException(
+                    "Cannot disable the last admin"
+            );
+        }
+    }
+    private void validateLastAdminRoleChange(User user, Role newRole) {
+
+        if (user.getRole() == Role.ADMIN
+                && user.isEnabled()
+                && newRole != Role.ADMIN
+                && userRepository.countByRoleAndEnabledTrue(Role.ADMIN) <= 1) {
+
+            throw new IllegalStateException(
+                    "Cannot remove the last admin"
+            );
+        }
+    }
+    private void updateAccountStatus(User user, boolean enabled) {
+
+        if (enabled) {
+            user.reactivateAccount();
+        } else {
+            user.disableAccount();
+        }
+    }
+
+    private void validateReactivationCredentials(User user, String rawPassword) {
+
+        if (!passwordEncoder.matches(rawPassword, user.getPassword())) {
+            throw new InvalidPasswordException("Invalid email or password");
+        }
+    }
+    private void validateAccountEligibleForReactivation(User user) {
+
+        if (user.isEnabled() || user.getDeletionScheduledAt() == null) {
+            throw new IllegalStateException(
+                    "Account is not eligible for reactivation"
+            );
+        }
+
+        if (!user.getDeletionScheduledAt().isAfter(LocalDateTime.now())) {
+            throw new IllegalStateException(
+                    "Account reactivation period has expired"
+            );
+        }
+    }
 
     // ==================== Common Methods ====================
 
@@ -196,6 +356,7 @@ public class UserService {
                         new UserNotFoundException("User not found"));
     }
 
+
     private UserResponse mapToUserResponse(User user) {
 
         UserResponse response = new UserResponse();
@@ -205,6 +366,20 @@ public class UserService {
         response.setLastName(user.getLastName());
         response.setEmail(user.getEmail());
         response.setPhone(user.getPhone());
+
+        return response;
+    }
+    private AdminUserResponse mapToAdminUserResponse(User user) {
+
+        AdminUserResponse response = new AdminUserResponse();
+
+        response.setId(user.getId());
+        response.setFirstName(user.getFirstName());
+        response.setLastName(user.getLastName());
+        response.setEmail(user.getEmail());
+        response.setPhone(user.getPhone());
+        response.setRole(user.getRole());
+        response.setEnabled(user.isEnabled());
 
         return response;
     }

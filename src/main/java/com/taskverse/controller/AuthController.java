@@ -1,5 +1,6 @@
 package com.taskverse.controller;
 
+import com.taskverse.dto.request.AccountReactivationRequest;
 import com.taskverse.dto.request.LoginRequest;
 import com.taskverse.dto.request.UserRegisterRequest;
 import com.taskverse.dto.response.ApiResponse;
@@ -48,6 +49,20 @@ public class AuthController {
         return ResponseEntity
                 .status(HttpStatus.OK)
                 .body(response);
+    }
+
+    @PostMapping("/reactivate")
+    public ResponseEntity<ApiResponse<Void>> reactivateAccount(
+            @Valid @RequestBody AccountReactivationRequest request) {
+
+        userService.reactivateAccount(request);
+
+        ApiResponse<Void> response = ApiResponse.success(
+                "Account Reactivated Successfully",
+                null
+        );
+
+        return ResponseEntity.ok(response);
     }
 
 }

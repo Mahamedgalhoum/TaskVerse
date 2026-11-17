@@ -54,6 +54,7 @@
             return JwtClaimsSet.builder()
                     .subject(authentication.getName())
                     .claim("tokenVersion", user.getTokenVersion())
+                    .claim("role", user.getRole().name())
                     .issuedAt(now)
                     .expiresAt(now.plusMillis(jwtExpiration))
                     .build();
